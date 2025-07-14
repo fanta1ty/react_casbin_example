@@ -1,0 +1,14 @@
+p, admin, users, read
+p, admin, users, write
+p, admin, settings, read
+p, admin, settings, write
+p, admin, dashboard, read
+p, manager, users, read
+p, manager, dashboard, read
+p, user, dashboard, read
+p, user, profile, read
+p, user, profile, write
+
+g, alice, admin
+g, bob, manager
+g, charlie, user
