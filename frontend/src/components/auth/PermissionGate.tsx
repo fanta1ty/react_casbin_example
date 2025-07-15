@@ -1,5 +1,6 @@
 import React from "react";
 import { useCasbin } from "../../hooks/useCasbin";
+import { LoadingSpinner } from "../common/LoadingSpinner";
 
 interface PermissionGateProps {
   action: string;
@@ -17,17 +18,9 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
   showLoading = true,
 }) => {
   const { canAccess, loading } = useCasbin(action, object);
-  // ✅ Add debug logging
-  React.useEffect(() => {
-    console.log(
-      `PermissionGate: ${action} -> ${object} = ${canAccess} (loading: ${loading})`
-    );
-  }, [action, object, canAccess, loading]);
 
   if (loading && showLoading) {
-    return (
-      <div className="text-gray-500 p-2 text-sm">Checking permissions...</div>
-    );
+    return <LoadingSpinner size="sm" text="Checking permissions..." />;
   }
 
   if (!canAccess) {

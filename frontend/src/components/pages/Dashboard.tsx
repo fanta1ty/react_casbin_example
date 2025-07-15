@@ -1,9 +1,34 @@
 import React from "react";
 import { useAuth } from "../../context/AuthContext";
 import { PermissionGate } from "../auth/PermissionGate";
+import { Users, Shield, Settings } from "lucide-react";
 
 export const Dashboard: React.FC = () => {
   const { user, permissions, error } = useAuth();
+
+  const stats = [
+    {
+      title: "Total Users",
+      value: "12",
+      icon: Users,
+      color: "blue",
+      permission: { action: "read", object: "users" },
+    },
+    {
+      title: "Active Roles",
+      value: "5",
+      icon: Shield,
+      color: "green",
+      permission: { action: "read", object: "roles" },
+    },
+    {
+      title: "System Settings",
+      value: "Active",
+      icon: Settings,
+      color: "purple",
+      permission: { action: "read", object: "settings" },
+    },
+  ];
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -15,9 +40,10 @@ export const Dashboard: React.FC = () => {
         </div>
       )}
 
+      {/* User Info */}
       <div className="bg-white shadow-md rounded-lg p-6 mb-6">
         <h2 className="text-xl font-semibold mb-4 text-gray-700">
-          User Information
+          Welcome, {user?.username}!
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -27,176 +53,97 @@ export const Dashboard: React.FC = () => {
           <div>
             <p className="text-sm text-gray-600">Roles:</p>
             <p className="font-medium text-gray-800">
-              {permissions?.roles?.join(", ") ||
-                user?.roles?.join(", ") ||
-                "None"}
+              {user?.roles?.join(", ") || "None"}
             </p>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <PermissionGate object="users" action="read">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-            <div className="flex items-center mb-3">
-              <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
-              <h3 className="font-semibold text-blue-800">Users Management</h3>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        {stats.map((stat, index) => (
+          <PermissionGate
+            key={index}
+            action={stat.permission.action}
+            object={stat.permission.object}
+            fallback={
+              <div className="bg-gray-100 rounded-lg p-6 opacity-50">
+                <div className="flex items-center">
+                  <div className="p-3 rounded-lg bg-gray-200">
+                    <stat.icon className="w-6 h-6 text-gray-400" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-400">
+                      {stat.title}
+                    </p>
+                    <p className="text-lg font-bold text-gray-400">No Access</p>
+                  </div>
+                </div>
+              </div>
+            }
+          >
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="flex items-center">
+                <div className={`p-3 rounded-lg bg-${stat.color}-100`}>
+                  <stat.icon className={`w-6 h-6 text-${stat.color}-600`} />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">
+                    {stat.title}
+                  </p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {stat.value}
+                  </p>
+                </div>
+              </div>
             </div>
-
-            <p className="text-blue-700 text-sm">You can view users</p>
-            <PermissionGate
-              object="users"
-              action="write"
-              fallback={null}
-              showLoading={false}
-            >
-              <p className="text-blue-600 text-xs mt-2 font-medium">
-                ✓ Can also modify users
-              </p>
-            </PermissionGate>
-          </div>
-        </PermissionGate>
-
-        <PermissionGate object="settings" action="read">
-          <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-            <div className="flex items-center mb-3">
-              <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
-              <h3 className="font-semibold text-green-800">Settings</h3>
-            </div>
-            <p className="text-green-700 text-sm">You can view settings</p>
-
-            <PermissionGate
-              object="settings"
-              action="write"
-              fallback={null}
-              showLoading={false}
-            >
-              <p className="text-green-600 text-xs mt-2 font-medium">
-                ✓ Can also modify settings
-              </p>
-            </PermissionGate>
-          </div>
-        </PermissionGate>
-
-        <PermissionGate object="profile" action="read">
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-6">
-            <div className="flex items-center mb-3">
-              <div className="w-3 h-3 bg-purple-500 rounded-full mr-2"></div>
-              <h3 className="font-semibold text-purple-800">Profile</h3>
-            </div>
-            <p className="text-purple-700 text-sm">You can view your profile</p>
-
-            <PermissionGate
-              object="profile"
-              action="write"
-              fallback={null}
-              showLoading={false}
-            >
-              <p className="text-purple-600 text-xs mt-2 font-medium">
-                ✓ Can also edit profile
-              </p>
-            </PermissionGate>
-          </div>
-        </PermissionGate>
+          </PermissionGate>
+        ))}
       </div>
 
+      {/* Quick Actions */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold mb-4 text-gray-800">
+          Quick Actions
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <PermissionGate action="read" object="users">
+            <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left">
+              <Users className="w-8 h-8 text-blue-500 mb-2" />
+              <h4 className="font-medium text-gray-900">Manage Users</h4>
+              <p className="text-sm text-gray-600">
+                View and manage user accounts
+              </p>
+            </button>
+          </PermissionGate>
+
+          <PermissionGate action="read" object="roles">
+            <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left">
+              <Shield className="w-8 h-8 text-green-500 mb-2" />
+              <h4 className="font-medium text-gray-900">Role Management</h4>
+              <p className="text-sm text-gray-600">Create and manage roles</p>
+            </button>
+          </PermissionGate>
+
+          <PermissionGate action="read" object="settings">
+            <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left">
+              <Settings className="w-8 h-8 text-purple-500 mb-2" />
+              <h4 className="font-medium text-gray-900">System Settings</h4>
+              <p className="text-sm text-gray-600">Configure system settings</p>
+            </button>
+          </PermissionGate>
+        </div>
+      </div>
+
+      {/* Permissions Debug Info */}
       {permissions && (
-        <div className="mt-8 bg-gray-50 rounded-lg p-6">
-          <h3 className="text-lg font-semibold mb-4 text-gray-800">
-            Your Permissions
-          </h3>
-
-          {/* Handle casbin.js manual mode format */}
-          {typeof permissions === "object" &&
-            !Array.isArray(permissions) &&
-            !permissions.permissions && (
-              <div className="space-y-4">
-                <h4 className="font-medium text-gray-700 mb-2">
-                  Actions You Can Perform:
-                </h4>
-                {Object.entries(permissions).map(([action, objects]) => (
-                  <div key={action} className="mb-3">
-                    <h5 className="font-medium text-gray-700 capitalize mb-1">
-                      {action}:
-                    </h5>
-                    <ul className="text-sm text-gray-600 space-y-1 ml-4">
-                      {Array.isArray(objects) ? (
-                        objects.map((object, index) => (
-                          <li
-                            key={index}
-                            className="bg-white px-2 py-1 rounded"
-                          >
-                            {action} → {object}
-                          </li>
-                        ))
-                      ) : (
-                        <li className="bg-white px-2 py-1 rounded">
-                          {action} → {String(objects)}
-                        </li>
-                      )}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            )}
-
-          {/* Handle detailed permissions format */}
-          {permissions.permissions !== undefined &&
-            permissions.implicitPermissions !== undefined && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h4 className="font-medium text-gray-700 mb-2">
-                    Direct Permissions:
-                  </h4>
-                  {permissions.permissions &&
-                  permissions.permissions.length > 0 ? (
-                    <ul className="text-sm text-gray-600 space-y-1">
-                      {permissions.permissions.map((perm, index) => (
-                        <li key={index} className="bg-white px-2 py-1 rounded">
-                          {Array.isArray(perm)
-                            ? perm.join(" → ")
-                            : String(perm)}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-gray-500">
-                      No direct permissions
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <h4 className="font-medium text-gray-700 mb-2">
-                    Role-based Permissions:
-                  </h4>
-                  {permissions.implicitPermissions &&
-                  permissions.implicitPermissions.length > 0 ? (
-                    <ul className="text-sm text-gray-600 space-y-1">
-                      {permissions.implicitPermissions.map((perm, index) => (
-                        <li key={index} className="bg-white px-2 py-1 rounded">
-                          {Array.isArray(perm)
-                            ? perm.join(" → ")
-                            : String(perm)}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-gray-500">
-                      No role-based permissions
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-
-          {/* Fallback for unknown permission formats */}
-          {typeof permissions === "object" &&
-            !Array.isArray(permissions) &&
-            permissions.permissions === undefined &&
-            permissions.implicitPermissions === undefined &&
-            Object.keys(permissions).length === 0 && (
-              <p className="text-sm text-gray-500">No permissions available</p>
-            )}
+        <div className="mt-6 bg-gray-50 rounded-lg p-4">
+          <h4 className="font-medium text-gray-700 mb-2">
+            Your Current Permissions:
+          </h4>
+          <pre className="text-xs text-gray-600 overflow-auto">
+            {JSON.stringify(permissions, null, 2)}
+          </pre>
         </div>
       )}
     </div>

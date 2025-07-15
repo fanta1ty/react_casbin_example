@@ -1,5 +1,3 @@
-import { Authorizer } from "casbin.js";
-
 export interface User {
   id: string;
   username: string;
@@ -17,31 +15,14 @@ export interface CasbinPermission {
   implicitPermissions: string[][];
 }
 
-export interface EnforceRequest {
-  user: string;
-  object: string;
-  action: string;
-}
-
-export interface EnforceResponse {
-  allowed: boolean;
-  request: {
-    user: string;
-    object: string;
-    action: string;
-  };
-}
-
 export interface CasbinContextType {
   user: User | null;
-  authorizer: Authorizer | null;
-  permissions: CasbinJsPermissions | null;
+  permissions: CasbinJsPermissions | CasbinPermission | null;
   loading: boolean;
   error: string | null;
   initialized: boolean;
   setUser: (user: User | null) => void;
   logout: () => void;
   can: (action: string, object: string) => Promise<boolean>;
-  cannot: (action: string, object: string) => Promise<boolean>;
   refreshPermissions: () => Promise<void>;
 }
