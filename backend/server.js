@@ -24,10 +24,97 @@ const initCasbin = async () => {
     process.exit(1);
   }
 };
+// Endpoint specifically for casbin.js
+app.get("/api/casbin/:user", async (req, res) => {
+  try {
+    const { user } = req.params;
+    const implicitPermissions = await enforcer.getImplicitPermissionsForUser(
+      user
+    );
+    const permissions = {};
+    implicitPermissions.forEach(([subject, object, action]) => {
+      if (!permissions[action]) {
+        permissions[action] = [];
+      }
+      permissions[action].push(object);
+    });
+    res.json(permissions);
+  } catch (error) {
+    console.error("Error getting permissions for casbin.js", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {
   res.json({ status: "OK", message: "Backend is running" });
+});
+
+app.get("/api/casbin/:user/detailed", async (req, res) => {
+  try {
+    const { user } = req.params;
+
+    const roles = await enforcer.getRolesForUser(user);
+    const permissions = await enforcer.getPermissionsForUser(user);
+    const implicitPermissions = await enforcer.getImplicitPermissionsForUser(
+      user
+    );
+
+    // Convert to casbin.js format
+    const casbinJsPermissions = {};
+    implicitPermissions.forEach(([subject, object, action]) => {
+      if (!casbinJsPermissions[action]) {
+        casbinJsPermissions[action] = [];
+      }
+      if (!casbinJsPermissions[action].includes(object)) {
+        casbinJsPermissions[action].push(object);
+      }
+    });
+
+    res.json({
+      permissions: casbinJsPermissions,
+      roles,
+      rawPermissions: permissions,
+      implicitPermissions,
+    });
+  } catch (error) {
+    console.error("Error getting detailed permissions:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// more detailed response
+app.get("/api/casbin/:user/detailed", async (req, res) => {
+  try {
+    const { user } = req.params;
+
+    const roles = await enforcer.getRolesForUser(user);
+    const permissions = await enforcer.getPermissionsForUser(user);
+    const implicitPermissions = await enforcer.getImplicitPermissionsForUser(
+      user
+    );
+
+    // Convert to casbin.js format
+    const casbinJsPermissions = {};
+    implicitPermissions.forEach(([subject, object, action]) => {
+      if (!casbinJsPermissions[action]) {
+        casbinJsPermissions[action] = [];
+      }
+      if (!casbinJsPermissions[action].includes(object)) {
+        casbinJsPermissions[action].push(object);
+      }
+    });
+
+    res.json({
+      permissions: casbinJsPermissions,
+      roles,
+      rawPermissions: permissions,
+      implicitPermissions,
+    });
+  } catch (error) {
+    console.error("Error getting detailed permissions:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Get user permissions

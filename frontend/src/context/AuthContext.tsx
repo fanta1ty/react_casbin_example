@@ -1,12 +1,6 @@
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
-import { CasbinContextType, CasbinPermission, User } from "../types/casbin";
-import { casbinApi } from "../services/casbin";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { CasbinContextType, CasbinJsPermissions, User } from "../types/casbin";
+import { Authorizer } from "casbin.js";
 
 const AuthContext = createContext<CasbinContextType | undefined>(undefined);
 
@@ -20,74 +14,195 @@ export const useAuth = (): CasbinContextType => {
 
 interface AuthProviderProps {
   children: React.ReactNode;
+  mode?: "auto" | "manual";
+  apiEndpoint?: string;
 }
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+export const AuthProvider: React.FC<AuthProviderProps> = ({
+  children,
+  mode = "auto",
+  apiEndpoint = "http://localhost:5001/api/casbin",
+}) => {
   const [user, setUser] = useState<User | null>(null);
-  const [permissions, setPermissions] = useState<CasbinPermission | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [authorizer, setAuthorizer] = useState<Authorizer | null>(null);
+  const [permissions, setPermissions] = useState<CasbinJsPermissions | null>(
+    null
+  );
+  const [loading, setLoading] = useState(true); // ✅ Start with loading true
   const [error, setError] = useState<string | null>(null);
+  const [initialized, setInitialized] = useState(false); // ✅ Track initialization
 
-  const refreshPermissions = useCallback(async () => {
-    if (!user) return;
+  // Initialize authorizer on mount
+  useEffect(() => {
+    const initializeAuthorizer = async () => {
+      try {
+        console.log("Initializing Casbin authorizer...");
+
+        let authorizerInstance: Authorizer;
+
+        if (mode === "auto") {
+          authorizerInstance = new Authorizer("auto", {
+            endpoint: apiEndpoint,
+          });
+        } else {
+          authorizerInstance = new Authorizer("manual");
+        }
+
+        setAuthorizer(authorizerInstance);
+        setInitialized(true);
+        console.log("Casbin authorizer initialized successfully");
+      } catch (err) {
+        console.error("Failed to initialize authorizer:", err);
+        setError("Failed to initialize authorization system");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeAuthorizer();
+  }, [mode, apiEndpoint]);
+
+  // Set user and fetch permissions
+  const handleSetUser = async (newUser: User | null) => {
+    if (!initialized || !authorizer) {
+      console.warn("Trying to set user before authorizer is initialized");
+      return;
+    }
 
     setLoading(true);
     setError(null);
 
     try {
-      const userPermissions = await casbinApi.getUserPermissions(user.username);
-      setPermissions(userPermissions);
+      if (newUser) {
+        console.log("Setting user in authorizer:", newUser.username);
+        await authorizer.setUser(newUser.username);
+
+        // If manual mode, fetch permissions from our API and set them
+        if (mode === "manual") {
+          await fetchAndSetPermissions(newUser.username);
+        }
+
+        setUser(newUser);
+        console.log("User set successfully");
+      } else {
+        // Clear user
+        setUser(null);
+        setPermissions(null);
+        // Note: casbin.js doesn't have a clear method, so we reinitialize
+        if (mode === "manual") {
+          const newAuthorizerInstance = new Authorizer("manual");
+          setAuthorizer(newAuthorizerInstance);
+        }
+      }
     } catch (err: any) {
-      const errorMessage =
-        err.response?.data?.error || "Failed to fetch permission";
-      setError(errorMessage);
-      console.error("Error fetching permissions:", err);
+      console.error("Error setting user:", err);
+      setError(err.message || "Failed to set user");
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  };
 
-  const checkPermission = async (
-    object: string,
-    action: string
-  ): Promise<boolean> => {
-    if (!user) return false;
+  // Fetch permissions for manual mode
+  const fetchAndSetPermissions = async (username: string) => {
     try {
-      const result = await casbinApi.enforcePermission({
-        user: user.username,
-        object,
-        action,
-      });
-      return result.allowed;
+      const response = await fetch(
+        `http://localhost:5001/api/casbin/${username}`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch permissions");
+      }
+
+      const fetchedPermissions = await response.json();
+      setPermissions(fetchedPermissions);
+
+      // Set permissions in casbin.js authorizer (manual mode)
+      if (authorizer) {
+        authorizer.setPermission(fetchedPermissions);
+      }
+    } catch (err) {
+      console.error("Error fetching permissions:", err);
+      throw err;
+    }
+  };
+
+  // ✅ Safe permission checking
+  const can = async (action: string, object: string): Promise<boolean> => {
+    if (!initialized || !authorizer || !user) {
+      console.warn("Cannot check permission: authorizer not ready or no user");
+      return false;
+    }
+
+    try {
+      const result = await authorizer.can(action, object);
+      return result;
     } catch (err) {
       console.error("Error checking permission:", err);
       return false;
     }
   };
 
-  const handleSetUer = (newUser: User | null) => {
-    setUser(newUser);
-    setPermissions(null);
-    setError(null);
+  // ✅ Safe negative permission checking
+  const cannot = async (action: string, object: string): Promise<boolean> => {
+    if (!initialized || !authorizer || !user) {
+      console.warn(
+        "Cannot check negative permission: authorizer not ready or no user"
+      );
+      return true;
+    }
+
+    try {
+      const result = await authorizer.cannot(action, object);
+      return result;
+    } catch (err) {
+      console.error("Error checking negative permission:", err);
+      return true;
+    }
   };
 
-  useEffect(() => {
-    if (user) {
-      refreshPermissions();
-    } else {
-      setPermissions(null);
+  // Refresh permissions
+  const refreshPermissions = async () => {
+    if (!user || !initialized || !authorizer) return;
+
+    setLoading(true);
+    try {
+      if (mode === "auto") {
+        await authorizer.setUser(user.username);
+      } else {
+        await fetchAndSetPermissions(user.username);
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to refresh permissions");
+    } finally {
+      setLoading(false);
     }
-  }, [user, refreshPermissions]);
+  };
+
+  // Logout
+  const logout = () => {
+    setUser(null);
+    setPermissions(null);
+    setError(null);
+
+    // Reinitialize authorizer for clean slate
+    if (mode === "manual" && initialized) {
+      const newAuthorizerInstance = new Authorizer("manual");
+      setAuthorizer(newAuthorizerInstance);
+    }
+  };
 
   return (
     <AuthContext.Provider
       value={{
         user,
+        authorizer,
         permissions,
         loading,
         error,
-        setUser: handleSetUer,
-        checkPermission,
+        initialized,
+        setUser: handleSetUser,
+        logout,
+        can,
+        cannot,
         refreshPermissions,
       }}
     >

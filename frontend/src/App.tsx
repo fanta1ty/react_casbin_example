@@ -97,7 +97,7 @@ const MainApp: React.FC = () => {
 
 function App() {
   return (
-    <AuthProvider>
+    <AuthProvider mode="manual" apiEndpoint="http://localhost:5001/api/casbin">
       <MainApp />
     </AuthProvider>
   );
